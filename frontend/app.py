@@ -90,7 +90,6 @@ with col1:
         receiver_acc = st.text_input("Receiver Account Number", help="9 to 18 digits")
         receiver_ifsc = st.text_input("Receiver IFSC Code", placeholder="e.g., ICIC0000456")
     
-    # Mapping Mode to ML 'types' (Maintains ML compatibility)
     mode_to_ml_type = {
         "IMPS (Instant Transfer)": 2, 
         "UPI / QR Code": 2,           
@@ -117,7 +116,6 @@ st.markdown("---")
 # ----------------------------
 if st.button("🚀 Analyze Transaction"):
 
-    # 1. Validation Logic (RESTORED EXACTLY)
     errors = []
     if not (sender_acc.isdigit() and 9 <= len(sender_acc) <= 18):
         errors.append("Sender Account Number must be between 9 and 18 digits.")
@@ -144,7 +142,6 @@ if st.button("🚀 Analyze Transaction"):
         for e in errors: st.error(e)
         st.stop()
 
-    # 2. Flagging & Protocol Rules (RESTORED EXACTLY)
     sender_bank = get_bank_name(sender_ifsc)
     receiver_bank = "UPI / Merchant" if mode == "UPI / QR Code" else get_bank_name(receiver_ifsc)
     
@@ -156,7 +153,6 @@ if st.button("🚀 Analyze Transaction"):
     is_rtgs_violation = (mode == "RTGS (High Value)" and amount < 200000)
     is_upi_high_risk = (mode == "UPI / QR Code" and amount > 100000)
 
-    # 3. Backend ML Call with Intelligence Injection
     input_data = {
         "step": step, "types": types, "amount": amount,
         "oldbalanceorig": oldbalanceorig, "newbalanceorig": newbalanceorig,
@@ -164,7 +160,6 @@ if st.button("🚀 Analyze Transaction"):
         "isflaggedfraud": 0
     }
     
-    # Granular Rail Risks (Applied to ensure IMPS/NEFT/RTGS differ)
     rail_risks = {
         "IMPS (Instant Transfer)": 0.14,
         "UPI / QR Code": 0.18,
@@ -174,17 +169,26 @@ if st.button("🚀 Analyze Transaction"):
     }
 
     try:
-        response = requests.post("http://localhost:8000/predict", json=input_data, timeout=1)
+        response = requests.post("http://localhost:8000/predict", json=input_data, timeout=5)
         result = response.json()
-        # Mix ML result with Rail Intelligence
+
+        shap_summary = result.get("shap_summary", {})
+        if shap_summary:
+            ml_feature_names = list(shap_summary.keys())
+            ml_shap_values = list(shap_summary.values())
+        else:
+            ml_feature_names = []
+            ml_shap_values = []
+
         base_score = (result["ml_probability"] * 0.7) + (rail_risks.get(mode, 0.10) * 0.3)
+
     except:
-        # Fallback logic if backend is disconnected
         mode_base = rail_risks.get(mode, 0.10)
         base_score = min(mode_base + (amount / 3000000) + (abs(step - 12) * 0.003), 0.45)
         result = {"ml_probability": base_score}
+        ml_shap_values = []
+        ml_feature_names = []
 
-    # 4. Weighted Risk Calculation (Multiplicative)
     risk_score = base_score
     risk_breakdown = [("ML Rail Baseline", round(base_score, 3))]
     risk_categories = []
@@ -207,7 +211,6 @@ if st.button("🚀 Analyze Transaction"):
 
     final_score = min(round(risk_score * 100, 1), 100.0)
     
-    # Classification Logic
     if final_score < 30:
         decision = "Genuine"
     elif final_score < 80: 
@@ -215,9 +218,6 @@ if st.button("🚀 Analyze Transaction"):
     else:
         decision = "Fraud"
 
-    # ----------------------------
-    # Output Sections (RESTORED EXACTLY)
-    # ----------------------------
     st.subheader("Transaction Classification")
     st.info(f"🔁 {mode}: {sender_bank} ➜ {receiver_bank}")
 
@@ -232,6 +232,59 @@ if st.button("🚀 Analyze Transaction"):
                          {'range': [80, 100], 'color': "#ff4b4b"}]}
     ))
     st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader("🧠 Machine Learning Explainability (SHAP)")
+    st.caption("Red features increase fraud probability, Green features decrease it.")
+
+    if ml_shap_values:
+
+    # 🔹 Feature Label Mapping (Raw → User Friendly)
+        FEATURE_NAME_MAP = {
+            "amount": "Transaction Amount",
+            "oldbalanceorig": "Sender Balance (Before)",
+            "newbalanceorig": "Sender Balance (After)",
+            "oldbalancedest": "Recipient Balance (Before)",
+            "newbalancedest": "Recipient Balance (After)",
+            "step": "Transaction Time (Hour of Day)",
+            "types": "Transaction Type",
+            "isflaggedfraud": "Historical Fraud Indicator"
+        }
+
+        shap_df = pd.DataFrame({
+            "Feature": ml_feature_names,
+            "Impact": ml_shap_values
+        })
+
+        # Apply user-friendly names
+        shap_df["Feature"] = shap_df["Feature"].map(FEATURE_NAME_MAP).fillna(shap_df["Feature"])
+        shap_df = shap_df[~shap_df["Feature"].isin([
+            "Recipient Balance (Before)",
+            "Recipient Balance (After)",
+            "Historical Fraud Indicator"
+            ])]
+
+        # Sort by absolute impact (strongest drivers first)
+        shap_df["AbsImpact"] = shap_df["Impact"].abs()
+        shap_df = shap_df.sort_values(by="AbsImpact", ascending=True)
+
+        # Color logic
+        shap_df["Color"] = [
+        "#ff4b4b" if x > 0 else "#00c896"
+        for x in shap_df["Impact"]
+        ]
+
+        fig_shap = px.bar(
+            shap_df,
+            x="Impact",
+            y="Feature",
+            orientation='h',
+            color="Color",
+            color_discrete_map="identity",
+            title="Top Drivers Influencing Fraud Probability"
+        )
+
+        fig_shap.update_layout(showlegend=False)
+        st.plotly_chart(fig_shap, use_container_width=True)
 
     st.subheader("📊 Risk Contribution Breakdown")
     breakdown_df = pd.DataFrame(risk_breakdown, columns=["Factor", "Weight"])
@@ -250,21 +303,44 @@ if st.button("🚀 Analyze Transaction"):
         for cat in set(risk_categories): st.write(f"• {cat}")
 
     st.subheader("⚠ Risk Triggers")
+
     def show_trigger(text, level):
         color = {"critical": "#ff4b4b", "moderate": "#f4b400", "info": "#00c8ff"}.get(level, "#e2e8f0")
         st.markdown(f"<span style='color:{color}'>• {text}</span>", unsafe_allow_html=True)
-    
-    if is_rtgs_violation: show_trigger("RTGS Protocol Violation: Amount below ₹2 Lakh limit.", "critical")
-    if is_full_drain: show_trigger("Full account balance drained.", "critical")
-    if is_high_amount: show_trigger("High transaction amount detected.", "moderate")
-    if is_interbank: show_trigger("Interbank exposure (Cross-institutional).", "moderate")
-    if is_upi_high_risk: show_trigger("UPI transaction exceeds standard individual safety limit.", "moderate")
-    if is_late_night: show_trigger("Late-night activity detected.", "info")
 
+    trigger_count = 0
+
+    if is_rtgs_violation:
+        show_trigger("RTGS Protocol Violation: Amount below ₹2 Lakh limit.", "critical")
+        trigger_count += 1
+
+    if is_full_drain:
+        show_trigger("Full account balance drained.", "critical")
+        trigger_count += 1
+
+    if is_high_amount: 
+        show_trigger("High transaction amount detected.", "moderate")
+        trigger_count += 1
+
+    if is_interbank:
+        show_trigger("Interbank exposure (Cross-institutional).", "moderate")
+        trigger_count += 1
+
+    if is_upi_high_risk:
+        show_trigger("UPI transaction exceeds standard individual safety limit.", "moderate")
+        trigger_count += 1
+
+    if is_late_night:
+        show_trigger("Late-night activity detected.", "info")
+        trigger_count += 1
+
+    # 👇 THIS IS THE IMPORTANT PART
+    if trigger_count == 0:
+        st.success("No risk triggers activated. Transaction behavior appears normal.")
     if decision == "Genuine":
         st.subheader("🔎 Why This Was Considered Safe")
         st.write("• No extreme behavioral anomalies detected.")
         st.write("• Transaction aligns with standard balance thresholds.")
         st.write("• Model probability remained within safe range.")
 
-    st.caption(f"Evaluation Timestamp: {datetime.now().strftime('%d %b %Y | %I:%M:%S %p')}")
+        st.caption(f"Evaluation Timestamp: {datetime.now().strftime('%d %b %Y | %I:%M:%S %p')}")
