@@ -1,34 +1,29 @@
-version: "3.7"
-
 services:
-  frontend:
-    build: frontend
-    ports:
-      - 8501:8501
-    networks: 
-      AIservice: 
-        aliases: 
-          - frontend.docker
-    depends_on:
-      - backend
-    volumes:
-        - ./frontend:/app
-        - ./storage:/storage
 
   backend:
-    build: backend
+    build: ./backend
+    container_name: fraud-backend
     ports:
-      - 8000:8000
-    networks: 
-      AIservice: 
-        aliases: 
-          - backend.docker
+      - "8000:8000"
     volumes:
       - ./backend:/app
       - ./storage:/storage
+    networks:
+      - fraud-net
 
-
+  frontend:
+    build: ./frontend
+    container_name: fraud-frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - ./storage:/storage
+    networks:
+      - fraud-net
 
 networks:
-  AIservice:
-    external: true
+  fraud-net:
+    driver: bridge

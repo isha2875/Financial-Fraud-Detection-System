@@ -1,16 +1,28 @@
-# frontent/Dockerfile
+# Use a slim but workable base image
+FROM python:3.11
 
-FROM python:3.11-slim
+# Install system dependencies required for Plotly + Streamlit
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt app/requirements.txt
-
+# Set working directory
 WORKDIR /app
 
-RUN pip install -r requirements.txt
+# Copy requirements first
+COPY requirements.txt .
 
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the app
 COPY . /app
 
+# Expose Streamlit port
 EXPOSE 8501
 
-ENTRYPOINT ["streamlit","run"]
-CMD ["app.py"]
+# Run Streamlit
+ENTRYPOINT ["streamlit", "run"]
+CMD ["app.py", "--server.port=8501", "--server.address=0.0.0.0"]
