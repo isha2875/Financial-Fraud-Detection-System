@@ -23,7 +23,5 @@ COPY . /app
 # Expose Streamlit port
 EXPOSE 8501
 
-# Run Streamlit
-ENTRYPOINT ["streamlit", "run"]
-
-CMD streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
+# **Shell form CMD with STREAMLIT_SERVER_PORT**
+CMD STREAMLIT_SERVER_PORT=$PORT streamlit run app.py --server.address=0.0.0.0
