@@ -169,7 +169,7 @@ if st.button("🚀 Analyze Transaction"):
     }
 
     try:
-        response = requests.post("http://backend:8000/predict", json=input_data, timeout=5)
+        response = requests.post("https://financial-fraud-detection-system-production.up.railway.app/predict", json=input_data, timeout=5)
         result = response.json()
 
         shap_summary = result.get("shap_summary", {})
