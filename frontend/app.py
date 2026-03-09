@@ -228,8 +228,8 @@ if st.button("🚀 Analyze Transaction"):
         number={'suffix': "%"},
         gauge={'axis': {'range': [0, 100]},
                'steps': [{'range': [0, 30], 'color': "#00c896"},
-                         {'range': [30, 80], 'color': "#f4b400"},
-                         {'range': [80, 100], 'color': "#ff4b4b"}]}
+                         {'range': [30, 75], 'color': "#f4b400"},
+                         {'range': [75, 100], 'color': "#ff4b4b"}]}
     ))
     st.plotly_chart(fig, use_container_width=True)
 
