@@ -213,7 +213,7 @@ if st.button("🚀 Analyze Transaction"):
     
     if final_score < 30:
         decision = "Genuine"
-    elif final_score < 80: 
+    elif final_score < 75: 
         decision = "Manual Review Required"
     else:
         decision = "Fraud"
