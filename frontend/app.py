@@ -64,7 +64,7 @@ def get_bank_name(ifsc):
 # Header
 # ----------------------------
 st.title("🏦 Financial Fraud Detection System")
-st.caption("Advanced ML Probability Scoring + Payment Rail Intelligence")
+st.caption("A fraud detection engine combining machine learning probability scoring with contextual transaction analysis, dynamic percentage weighting, and explainable risk modeling.")
 st.markdown("---")
 
 # ----------------------------
