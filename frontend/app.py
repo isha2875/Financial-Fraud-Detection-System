@@ -3,6 +3,7 @@ import requests
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import pandas as pd
 import numpy as np
 
@@ -343,4 +344,4 @@ if st.button("🚀 Analyze Transaction"):
         st.write("• Transaction aligns with standard balance thresholds.")
         st.write("• Model probability remained within safe range.")
 
-        st.caption(f"Evaluation Timestamp: {datetime.now().strftime('%d %b %Y | %I:%M:%S %p')}")
+        st.caption(f"Evaluation Timestamp: {datetime.now(ZoneInfo('Asia/Kolkata')).strftime('%d %b %Y | %I:%M:%S %p')}")
